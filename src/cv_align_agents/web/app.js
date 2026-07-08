@@ -7,6 +7,15 @@ const submitBtn = document.getElementById("submit-btn");
 
 const SECTION_ORDER = ["skills", "experience", "projects", "education"];
 
+/* Evergreen recruiter quick-wins shown to candidates (things you can do right
+   now that a text-only checker can't verify from an extracted PDF). */
+const EVERGREEN_QUICKWINS = [
+  "Bold the tools, metrics, and keywords a recruiter scans for.",
+  "Lead each bullet with a strong action verb and a concrete number.",
+  "Keep each bullet to a single line; cut filler words.",
+  "Mirror the exact skill terms from the job description where they apply.",
+];
+
 /* Small DOM helper that sets text safely (no innerHTML for untrusted data). */
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -63,7 +72,30 @@ function renderList(title, items, emptyText) {
   return frag;
 }
 
-function renderCandidate(candidate, index) {
+function renderReasons(candidate) {
+  const reasons = candidate.section_reasons || {};
+  const evidence = candidate.section_evidence || {};
+  const sections = SECTION_ORDER.filter((s) => reasons[s]);
+  if (!sections.length) return null;
+
+  const wrap = el("div", "reasons");
+  wrap.appendChild(el("p", "section-title", "Why this ranking"));
+  sections.forEach((section) => {
+    const row = el("div", "reason-row");
+    row.appendChild(el("span", "reason-section", section));
+    const body = el("div", "reason-body");
+    body.appendChild(el("span", "reason-text", reasons[section]));
+    const ev = evidence[section];
+    if (ev && ev.length) {
+      body.appendChild(el("span", "reason-evidence", "Evidence: " + ev.join("; ")));
+    }
+    row.appendChild(body);
+    wrap.appendChild(row);
+  });
+  return wrap;
+}
+
+function renderCandidate(candidate, index, mode) {
   const card = el("div", "candidate");
 
   const head = el("div", "candidate-head");
@@ -82,22 +114,48 @@ function renderCandidate(candidate, index) {
 
   card.appendChild(head);
   card.appendChild(renderBreakdown(candidate.breakdown));
-  card.appendChild(renderList("Gaps vs the job", candidate.gaps, "No major gaps found."));
-  card.appendChild(
-    renderList("Suggestions", candidate.suggestions, "No suggestions.")
-  );
 
+  const reasons = renderReasons(candidate);
+  if (reasons) card.appendChild(reasons);
+
+  // Bucket 1 — Build over time: skills/experience to develop for this role.
+  const build = el("div", "bucket build-over-time");
+  build.appendChild(el("p", "bucket-title", "Build over time — for this role"));
+  build.appendChild(
+    renderList("Gaps vs the role", candidate.gaps, "No major gaps found.")
+  );
+  build.appendChild(
+    renderList(
+      "Skills & experience to build",
+      candidate.suggestions,
+      "No suggestions."
+    )
+  );
+  card.appendChild(build);
+
+  // Bucket 2 — Fix right now: immediate, deterministic CV edits, shown below.
+  const fix = el("div", "bucket fix-now");
+  fix.appendChild(el("p", "bucket-title", "Fix right now — quick CV edits"));
   if (candidate.hygiene_score !== null && candidate.hygiene_score !== undefined) {
-    const hygiene = el(
-      "p",
-      "hygiene-line",
-      "Resume hygiene: " + pct(candidate.hygiene_score) + "%"
+    fix.appendChild(
+      el("p", "hygiene-line", "Resume hygiene: " + pct(candidate.hygiene_score) + "%")
     );
-    if (candidate.hygiene_issues && candidate.hygiene_issues.length) {
-      hygiene.textContent += " — " + candidate.hygiene_issues.join("; ");
-    }
-    card.appendChild(hygiene);
   }
+  const issues = candidate.hygiene_issues || [];
+  if (issues.length) {
+    const ul = el("ul");
+    issues.forEach((i) => ul.appendChild(el("li", null, i)));
+    fix.appendChild(ul);
+  } else {
+    fix.appendChild(el("p", "empty", "No quick fixes detected — clean resume."));
+  }
+  if (mode === "candidate") {
+    fix.appendChild(el("p", "tips-title", "Evergreen recruiter quick-wins"));
+    const tips = el("ul", "tips");
+    EVERGREEN_QUICKWINS.forEach((t) => tips.appendChild(el("li", null, t)));
+    fix.appendChild(tips);
+  }
+  card.appendChild(fix);
 
   return card;
 }
@@ -114,7 +172,7 @@ function renderResults(data) {
   );
   resultsEl.appendChild(summary);
 
-  candidates.forEach((c, i) => resultsEl.appendChild(renderCandidate(c, i)));
+  candidates.forEach((c, i) => resultsEl.appendChild(renderCandidate(c, i, data.mode)));
 }
 
 async function handleSubmit(event) {

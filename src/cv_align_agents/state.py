@@ -281,10 +281,22 @@ class CandidateResult(BaseModel):
     score: float = Field(ge=0.0, le=1.0)
     verdict: Verdict
     breakdown: dict[str, float] = Field(default_factory=dict)
+
+    # "Build over time" bucket: JD requirements not clearly met (``gaps``) and the
+    # critic's role-oriented, skill-building advice (``suggestions``).
     gaps: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
+
+    # "Fix right now" bucket: objective, deterministic resume-quality signal and
+    # the concrete quick edits it surfaced (``hygiene_issues``).
     hygiene_score: float | None = None
     hygiene_issues: list[str] = Field(default_factory=list)
+
+    # Why the candidate ranked where they did: the matcher's per-section reasoning
+    # and the supporting evidence, surfaced for explainability ("show the reason
+    # for the ranking"). Keyed by section (skills/experience/projects/education).
+    section_reasons: dict[str, str] = Field(default_factory=dict)
+    section_evidence: dict[str, list[str]] = Field(default_factory=dict)
 
     @classmethod
     def from_state(cls, state: PipelineState) -> CandidateResult:
@@ -301,6 +313,16 @@ class CandidateResult(BaseModel):
             if state.hygiene
             else []
         )
+        # Surface the matcher's per-section reasoning/evidence as the "reason for
+        # the ranking" (empty if the pipeline failed before matching).
+        section_reasons: dict[str, str] = {}
+        section_evidence: dict[str, list[str]] = {}
+        if state.match_result is not None:
+            for sub in state.match_result.sub_scores:
+                if sub.reasoning:
+                    section_reasons[sub.section] = sub.reasoning
+                if sub.evidence:
+                    section_evidence[sub.section] = list(sub.evidence)
         return cls(
             filename=state.resume_raw.filename,
             candidate_name=name,
@@ -311,6 +333,8 @@ class CandidateResult(BaseModel):
             suggestions=suggestions,
             hygiene_score=hygiene_score,
             hygiene_issues=hygiene_issues,
+            section_reasons=section_reasons,
+            section_evidence=section_evidence,
         )
 
 

@@ -41,6 +41,51 @@ _GENERIC_NAME_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Recruiter quick-fix rules (things a candidate can fix on the CV right now).
+# Weak bullet openers that bury impact behind passive/vague phrasing.
+_WEAK_OPENERS: tuple[str, ...] = (
+    "worked on",
+    "responsible for",
+    "responsibilities included",
+    "responsibilities include",
+    "duties included",
+    "helped with",
+    "helped to",
+    "assisted with",
+    "assisted in",
+    "involved in",
+    "participated in",
+    "tasked with",
+    "in charge of",
+    "was part of",
+)
+# First-person pronouns are a resume convention violation (implied first person).
+# Case-sensitive "I" avoids matching the "i" in "i.e."; "US" (country) is excluded.
+_FIRST_PERSON_RE = re.compile(
+    r"\bI\b|\bI['\u2019](?:m|ve|ll|d)\b|\b(?:[Mm]y|[Mm]e|[Ww]e|[Oo]ur)\b"
+)
+# Vague buzzwords recruiters discount; replace with concrete, quantified evidence.
+_BUZZWORDS: tuple[str, ...] = (
+    "hardworking",
+    "hard-working",
+    "team player",
+    "go-getter",
+    "go getter",
+    "detail-oriented",
+    "detail oriented",
+    "self-motivated",
+    "self motivated",
+    "results-driven",
+    "results driven",
+    "think outside the box",
+    "fast learner",
+    "quick learner",
+    "passionate about",
+    "synergy",
+)
+# Bullets longer than this many words are hard to scan in a 6-second review.
+_LONG_BULLET_WORDS = 30
+
 
 def check_hygiene(
     resume: StructuredResume,
@@ -69,6 +114,10 @@ def check_hygiene(
     _check_skills(resume, issues, positives)
     _check_projects(resume, issues, positives)
     _check_quantified_experience(resume, issues, positives)
+    _check_weak_action_verbs(resume, issues)
+    _check_long_bullets(resume, issues)
+    _check_first_person(resume, issues)
+    _check_buzzwords(resume, issues)
     _check_education(resume, issues)
 
     penalty = sum(_PENALTY[i.severity] for i in issues)
@@ -201,6 +250,78 @@ def _check_quantified_experience(resume, issues, positives) -> None:
             "unquantified_experience",
             "info",
             "Experience lacks numbers; quantify impact (e.g. 'cut latency 40%').",
+        )
+
+
+def _experience_bullets(resume) -> list[str]:
+    """All non-empty experience bullets across every experience item."""
+    return [
+        bullet
+        for exp in resume.experience
+        for bullet in exp.bullets
+        if bullet and bullet.strip()
+    ]
+
+
+def _check_weak_action_verbs(resume, issues) -> None:
+    offenders: list[str] = []
+    for bullet in _experience_bullets(resume):
+        opener = bullet.strip().lstrip("-*\u2022 \t").lower()
+        if any(opener.startswith(weak) for weak in _WEAK_OPENERS):
+            offenders.append(bullet.strip())
+    if offenders:
+        _add(
+            issues,
+            "weak_action_verb",
+            "info",
+            "Start bullets with a strong action verb (Built, Led, Reduced, "
+            "Shipped) instead of weak openers like 'Worked on' or 'Responsible "
+            f"for' ({len(offenders)} bullet(s)).",
+        )
+
+
+def _check_long_bullets(resume, issues) -> None:
+    long_count = sum(
+        1 for bullet in _experience_bullets(resume)
+        if len(bullet.split()) > _LONG_BULLET_WORDS
+    )
+    if long_count:
+        _add(
+            issues,
+            "long_bullet",
+            "info",
+            f"Condense {long_count} overly long bullet(s) to a single scannable "
+            f"line (aim for under {_LONG_BULLET_WORDS} words).",
+        )
+
+
+def _check_first_person(resume, issues) -> None:
+    texts = _experience_bullets(resume) + [
+        p.description for p in resume.projects if p.description
+    ]
+    if any(_FIRST_PERSON_RE.search(t) for t in texts):
+        _add(
+            issues,
+            "first_person",
+            "info",
+            "Remove first-person pronouns (I, my, we, our); resumes use the "
+            "implied first person.",
+        )
+
+
+def _check_buzzwords(resume, issues) -> None:
+    texts = _experience_bullets(resume) + [
+        p.description for p in resume.projects if p.description
+    ]
+    haystack = " ".join(texts).lower()
+    found = sorted({bw for bw in _BUZZWORDS if bw in haystack})
+    if found:
+        _add(
+            issues,
+            "buzzwords",
+            "info",
+            "Replace vague buzzwords ("
+            f"{', '.join(found)}) with concrete, quantified achievements.",
         )
 
 

@@ -110,3 +110,79 @@ def test_deterministic():
     resume = _strong_resume()
     raw = _strong_raw_text()
     assert check_hygiene(resume, raw).score == check_hygiene(resume, raw).score
+
+
+def test_weak_action_verb_flagged():
+    resume = _strong_resume()
+    resume.experience = [
+        ExperienceItem(
+            company="Acme",
+            role="Intern",
+            bullets=["Responsible for maintaining the deployment pipeline in 2023"],
+        )
+    ]
+    report = check_hygiene(resume, _strong_raw_text())
+    assert any(i.check == "weak_action_verb" for i in report.issues)
+
+
+def test_strong_verb_not_flagged_as_weak():
+    # The strong resume's bullet starts with "Reduced" and must not be flagged.
+    report = check_hygiene(_strong_resume(), _strong_raw_text())
+    assert not any(i.check == "weak_action_verb" for i in report.issues)
+
+
+def test_long_bullet_flagged():
+    resume = _strong_resume()
+    long_bullet = "Built " + " ".join(f"thing{i}" for i in range(40)) + " achieving 10%"
+    resume.experience = [
+        ExperienceItem(company="Acme", role="Intern", bullets=[long_bullet])
+    ]
+    report = check_hygiene(resume, _strong_raw_text())
+    assert any(i.check == "long_bullet" for i in report.issues)
+
+
+def test_first_person_flagged():
+    resume = _strong_resume()
+    resume.experience = [
+        ExperienceItem(
+            company="Acme",
+            role="Intern",
+            bullets=["Built my own service that cut costs by 20%"],
+        )
+    ]
+    report = check_hygiene(resume, _strong_raw_text())
+    assert any(i.check == "first_person" for i in report.issues)
+
+
+def test_first_person_ignores_ie_abbreviation():
+    # "i.e." must not be mistaken for the pronoun "I".
+    resume = _strong_resume()
+    resume.experience = [
+        ExperienceItem(
+            company="Acme",
+            role="Intern",
+            bullets=["Reduced latency, i.e. faster responses, by 40% across 3 apps"],
+        )
+    ]
+    report = check_hygiene(resume, _strong_raw_text())
+    assert not any(i.check == "first_person" for i in report.issues)
+
+
+def test_buzzwords_flagged():
+    resume = _strong_resume()
+    resume.experience = [
+        ExperienceItem(
+            company="Acme",
+            role="Intern",
+            bullets=["A hardworking team player who reduced latency by 40%"],
+        )
+    ]
+    report = check_hygiene(resume, _strong_raw_text())
+    assert any(i.check == "buzzwords" for i in report.issues)
+
+
+def test_strong_resume_triggers_no_quickfix_rules():
+    # None of the recruiter quick-fix rules should fire on a clean resume.
+    report = check_hygiene(_strong_resume(), _strong_raw_text())
+    quickfix = {"weak_action_verb", "long_bullet", "first_person", "buzzwords"}
+    assert not any(i.check in quickfix for i in report.issues)

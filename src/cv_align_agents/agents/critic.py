@@ -52,15 +52,21 @@ Produce:
 - `gaps`: specific requirements from the JOB DESCRIPTION that the candidate does \
 not clearly satisfy. Be concrete (name the missing skill/experience). Empty list \
 if there are none.
-- `suggestions`: actionable, candidate-facing advice to improve fit for THIS \
-role. Fold in any relevant hygiene issues (e.g. missing links, unquantified \
-experience). Keep each suggestion short and specific.
+- `suggestions`: forward-looking, skill-building advice the candidate should work \
+on OVER TIME to become a stronger fit for THIS role — concrete skills to learn, \
+technologies to gain depth in, and the kind of experience or projects to build. \
+Frame each as something to develop next (e.g. "Build a service using Kafka to \
+show streaming experience"). Do NOT include cosmetic resume-editing fixes such as \
+bolding, adding numbers, shortening bullets, or adding links — a separate \
+deterministic checker already handles those immediate edits, so avoid duplicating \
+them here. Keep each suggestion short and specific.
 - `verdict`: one of strong_fit, moderate_fit, weak_fit, reflecting overall fit.
 - `confidence_in_scoring`: 0.0-1.0 — how confident you are that the per-section \
 scores are well-justified by the cited evidence. Lower this when evidence is \
 thin, ambiguous, or seems inconsistent with the scores.
 
-Be honest and specific; do not pad the lists.\
+Be honest and specific; do not pad the lists. Use the hygiene report only as \
+context on the resume's current state, not as a source of suggestions.\
 """
 
 

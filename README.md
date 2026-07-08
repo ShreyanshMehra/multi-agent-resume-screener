@@ -21,7 +21,11 @@ with a self-correction loop and a full audit trail for explainability.
 It serves two personas from one engine:
 
 - **Candidate mode** — "How well does my CV fit this job, and how do I improve it?"
+  Feedback comes in two tracks: **build over time** (skills/experience to develop
+  for this role) and **fix right now** (immediate, deterministic CV edits).
 - **Recruiter mode** — "Rank these resumes for this job, with reasons."
+  Every candidate carries the matcher's per-section reasoning + evidence as the
+  explicit reason for the ranking.
 
 ## Why a multi-agent design?
 
@@ -37,8 +41,8 @@ task needs judgment:
 | JD Parser | agent | Job description → structured requirements |
 | Matcher | agent | Per-section sub-scores + quoted evidence, vs **this** JD |
 | Scorer | function | Deterministic weighted score from sub-scores |
-| Hygiene | function | Objective resume checks (links, quantified bullets, generic names…) |
-| Critic | agent | Gaps, suggestions, verdict, and a confidence check |
+| Hygiene | function | Deterministic "fix right now" rules: links, quantified bullets, weak verbs, over-long bullets, first-person pronouns, buzzwords, generic names… |
+| Critic | agent | JD gaps, "build over time" skill-building advice, verdict, and a confidence check |
 
 If the critic is not confident the score is well-supported, it loops back to the
 matcher once for a re-evaluation (capped to avoid infinite loops).
@@ -58,9 +62,29 @@ matcher once for a re-evaluation (capped to avoid infinite loops).
                           ranked, explainable results
 ```
 
+## Candidate feedback: two tracks
+
+When you screen your own CV (candidate mode), the feedback is deliberately split
+into two buckets, because the two kinds of improvement have very different time
+horizons:
+
+- **Build over time — for this role.** JD requirements you don't clearly meet
+  (`gaps`) plus the critic's forward-looking, skill-building advice
+  (`suggestions`): technologies to learn and the kind of experience/projects to
+  build next. These are things you *grow into*, not edits you make today.
+- **Fix right now — quick CV edits.** Objective, rule-based issues from the
+  deterministic hygiene checker (`hygiene_issues`): add impact numbers, lead with
+  strong action verbs, condense over-long bullets, drop first-person pronouns and
+  buzzwords, add missing links. These are instant, no-LLM, and reproducible, and
+  the UI shows them in a separate section below.
+
+Because the "fix right now" bucket is deterministic, it's cheap and defensible
+("we combine objective rule-based checks with LLM judgment, not one big prompt")
+and adds no latency.
+
 ## Status
 
-✅ Core engine + HTTP API complete and tested (68 tests, all live-verified
+✅ Core engine + HTTP API complete and tested (78 tests, all live-verified
 against Gemini). See `docs/architecture.md` for the full design.
 
 ## Tech stack

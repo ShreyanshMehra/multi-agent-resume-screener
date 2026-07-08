@@ -11,10 +11,12 @@ from cv_align_agents.state import (
     Critique,
     FinalScore,
     JDRaw,
+    MatchResult,
     PipelineConfig,
     PipelineState,
     ResumeRaw,
     StructuredResume,
+    SubScore,
 )
 
 
@@ -113,6 +115,33 @@ def test_candidate_result_handles_empty_state():
     assert result.score == 0.0
     assert result.verdict == "weak_fit"
     assert result.gaps == []
+    assert result.section_reasons == {}
+    assert result.section_evidence == {}
+
+
+def test_candidate_result_surfaces_ranking_reasons():
+    # The matcher's per-section reasoning/evidence is surfaced as the ranking
+    # explanation on the public result.
+    state = _make_state()
+    state.resume_structured = StructuredResume(name="Alice Doe")
+    state.match_result = MatchResult(
+        sub_scores=[
+            SubScore(
+                section="skills",
+                score=0.9,
+                evidence=["Python", "Go"],
+                reasoning="Strong overlap with required skills.",
+            ),
+            SubScore(section="experience", score=0.5, reasoning="Limited backend depth."),
+        ],
+        overall_evidence_quality=0.8,
+    )
+    result = CandidateResult.from_state(state)
+    assert result.section_reasons["skills"] == "Strong overlap with required skills."
+    assert result.section_reasons["experience"] == "Limited backend depth."
+    assert result.section_evidence["skills"] == ["Python", "Go"]
+    # Section with no evidence is omitted from the evidence map.
+    assert "experience" not in result.section_evidence
 
 
 def test_state_round_trips_through_json():
