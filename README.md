@@ -1,3 +1,14 @@
+---
+title: multi-agent-resume-screener
+emoji: 📄
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 8000
+pinned: false
+license: mit
+---
+
 # multi-agent-resume-screener
 
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
