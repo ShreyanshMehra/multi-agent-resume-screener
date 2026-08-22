@@ -11,7 +11,7 @@ license: mit
 
 # multi-agent-resume-screener
 
-**Live demo:** https://bit.ly/multi-agent-resume-screener
+**Live demo:** https://bit.ly/multi_agent-resume-screener
 
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
 
