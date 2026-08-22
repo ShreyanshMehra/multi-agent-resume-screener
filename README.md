@@ -16,16 +16,16 @@ license: mit
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
 
 multi-agent-resume-screener screens resumes against a job description using a pipeline of
-specialized agents — a **parser**, a **JD parser**, a **matcher**, a
-deterministic **scorer**, a deterministic **hygiene** checker, and a **critic** —
+specialized agents (a **parser**, a **JD parser**, a **matcher**, a
+deterministic **scorer**, a deterministic **hygiene** checker, and a **critic**),
 with a self-correction loop and a full audit trail for explainability.
 
 It serves two personas from one engine:
 
-- **Candidate mode** — "How well does my CV fit this job, and how do I improve it?"
+- **Candidate mode**: "How well does my CV fit this job, and how do I improve it?"
   Feedback comes in two tracks: **build over time** (skills/experience to develop
   for this role) and **fix right now** (immediate, deterministic CV edits).
-- **Recruiter mode** — "Rank these resumes for this job, with reasons."
+- **Recruiter mode**: "Rank these resumes for this job, with reasons."
   Every candidate carries the matcher's per-section reasoning + evidence as the
   explicit reason for the ranking.
 
@@ -70,11 +70,11 @@ When you screen your own CV (candidate mode), the feedback is deliberately split
 into two buckets, because the two kinds of improvement have very different time
 horizons:
 
-- **Build over time — for this role.** JD requirements you don't clearly meet
+- **Build over time, for this role.** JD requirements you don't clearly meet
   (`gaps`) plus the critic's forward-looking, skill-building advice
   (`suggestions`): technologies to learn and the kind of experience/projects to
   build next. These are things you *grow into*, not edits you make today.
-- **Fix right now — quick CV edits.** Objective, rule-based issues from the
+- **Fix right now, quick CV edits.** Objective, rule-based issues from the
   deterministic hygiene checker (`hygiene_issues`): add impact numbers, lead with
   strong action verbs, condense over-long bullets, drop first-person pronouns and
   buzzwords, add missing links. These are instant, no-LLM, and reproducible, and
@@ -94,7 +94,7 @@ against Gemini). See `docs/architecture.md` for the full design.
 - Python 3.12
 - FastAPI + Uvicorn
 - LangGraph + LangChain (agent orchestration)
-- Google Gemini (free tier) — provider-abstracted, Groq swappable
+- Google Gemini (free tier), provider-abstracted so Groq is swappable
 - pypdf (PDF text extraction)
 - SQLite (run history / explainability)
 
@@ -210,7 +210,7 @@ sleeps only after 48h idle, so a portfolio link is usually warm.
 
 **Render (free tier):** create a new Blueprint from the repo and set
 `GOOGLE_API_KEY` in the dashboard. Note: free services spin down after 15 min
-idle. Either platform keeps the SQLite file in `/tmp` (ephemeral — run history
+idle. Either platform keeps the SQLite file in `/tmp` (ephemeral, so run history
 resets on redeploy, which is fine for a demo).
 
 ## License
