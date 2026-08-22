@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from cv_align_agents.agents.critic import _CriticLLMOutput
-from cv_align_agents.pipeline.graph import build_pipeline, run_pipeline
-from cv_align_agents.state import (
+from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
+from multi_agent_resume_screener.pipeline.graph import build_pipeline, run_pipeline
+from multi_agent_resume_screener.state import (
     CandidateResult,
     JDRaw,
     MatchResult,
@@ -135,7 +135,7 @@ def test_prebuilt_pipeline_is_reusable():
     llm = _RoutingFakeLLM(_results(confidence=0.95))
     pipeline = build_pipeline(llm=llm)
 
-    from cv_align_agents.state import PipelineState
+    from multi_agent_resume_screener.state import PipelineState
 
     out = pipeline.invoke(
         PipelineState(resume_raw=resume_raw, jd_raw=jd_raw, config=PipelineConfig())

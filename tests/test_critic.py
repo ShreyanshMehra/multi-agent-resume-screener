@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from cv_align_agents.agents.critic import _CriticLLMOutput, critique
-from cv_align_agents.state import (
+from multi_agent_resume_screener.agents.critic import _CriticLLMOutput, critique
+from multi_agent_resume_screener.state import (
     FinalScore,
     HygieneIssue,
     HygieneReport,

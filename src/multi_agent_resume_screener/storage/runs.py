@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from cv_align_agents.state import ScreeningResult
+from multi_agent_resume_screener.state import ScreeningResult
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (

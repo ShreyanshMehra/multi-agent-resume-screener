@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from cv_align_agents.state import CandidateResult, ScreeningResult
-from cv_align_agents.storage.runs import RunStore
+from multi_agent_resume_screener.state import CandidateResult, ScreeningResult
+from multi_agent_resume_screener.storage.runs import RunStore
 
 
 def _result(mode="recruiter") -> ScreeningResult:

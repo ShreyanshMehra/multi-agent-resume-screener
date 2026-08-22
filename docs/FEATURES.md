@@ -1,6 +1,6 @@
-# CV-Align-Agents — Features & How It Works
+# multi-agent-resume-screener — Features & How It Works
 
-A complete guide to what CV-Align-Agents does and how it works internally.
+A complete guide to what multi-agent-resume-screener does and how it works internally.
 Part 1 lists every feature. Part 2 explains the mechanics with flowcharts.
 
 > The diagrams below use [Mermaid](https://mermaid.js.org/), which GitHub renders
@@ -426,7 +426,7 @@ flowchart TD
 
 ## Summary
 
-CV-Align-Agents combines **deterministic functions** (PDF extraction, scoring,
+multi-agent-resume-screener combines **deterministic functions** (PDF extraction, scoring,
 hygiene) with **LLM agents** (parsing, matching, critique) in a LangGraph
 pipeline that is JD-aware, self-correcting, explainable, and provider-agnostic —
 served through a tested HTTP API with a simple web UI and SQLite persistence.

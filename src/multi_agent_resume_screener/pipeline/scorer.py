@@ -13,7 +13,7 @@ is in [0, 1], the final score is always in [0, 1].
 
 from __future__ import annotations
 
-from cv_align_agents.state import (
+from multi_agent_resume_screener.state import (
     SECTIONS,
     FinalScore,
     MatchResult,

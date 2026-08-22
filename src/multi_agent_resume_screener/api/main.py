@@ -23,23 +23,23 @@ from fastapi.staticfiles import StaticFiles
 from langchain_core.language_models import BaseChatModel
 from pydantic import ValidationError
 
-from cv_align_agents import __version__
-from cv_align_agents.llm.client import LLMConfigError
-from cv_align_agents.pdf import PDFExtractionError, extract_text_from_pdf
-from cv_align_agents.pipeline.screen import screen
-from cv_align_agents.settings import get_settings
-from cv_align_agents.state import (
+from multi_agent_resume_screener import __version__
+from multi_agent_resume_screener.llm.client import LLMConfigError
+from multi_agent_resume_screener.pdf import PDFExtractionError, extract_text_from_pdf
+from multi_agent_resume_screener.pipeline.screen import screen
+from multi_agent_resume_screener.settings import get_settings
+from multi_agent_resume_screener.state import (
     JDRaw,
     PipelineConfig,
     ResumeRaw,
     ScreeningResult,
 )
-from cv_align_agents.storage.runs import RunStore
+from multi_agent_resume_screener.storage.runs import RunStore
 
 load_dotenv()
 
 app = FastAPI(
-    title="CV-Align-Agents",
+    title="multi-agent-resume-screener",
     version=__version__,
     summary="Multi-agent resume screening (LangGraph + Gemini).",
 )

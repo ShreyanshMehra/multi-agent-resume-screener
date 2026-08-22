@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from cv_align_agents.pipeline.hygiene import check_hygiene
-from cv_align_agents.state import (
+from multi_agent_resume_screener.pipeline.hygiene import check_hygiene
+from multi_agent_resume_screener.state import (
     EducationItem,
     ExperienceItem,
     ProjectItem,

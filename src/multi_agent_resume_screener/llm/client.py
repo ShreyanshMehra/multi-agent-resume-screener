@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from langchain_core.language_models import BaseChatModel
 
-from cv_align_agents.settings import Settings, get_settings
+from multi_agent_resume_screener.settings import Settings, get_settings
 
 # Sensible free-tier defaults per provider, used when LLM_MODEL is not set.
 DEFAULT_MODELS: dict[str, str] = {

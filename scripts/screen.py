@@ -17,9 +17,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from cv_align_agents.pdf import PDFExtractionError, extract_text_from_pdf
-from cv_align_agents.pipeline.graph import run_pipeline
-from cv_align_agents.state import CandidateResult, JDRaw, PipelineConfig, ResumeRaw
+from multi_agent_resume_screener.pdf import PDFExtractionError, extract_text_from_pdf
+from multi_agent_resume_screener.pipeline.graph import run_pipeline
+from multi_agent_resume_screener.state import CandidateResult, JDRaw, PipelineConfig, ResumeRaw
 
 
 def _read_jd(args: list[str]) -> str | None:

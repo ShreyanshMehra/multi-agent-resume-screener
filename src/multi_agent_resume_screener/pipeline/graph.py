@@ -26,13 +26,13 @@ from __future__ import annotations
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 
-from cv_align_agents.agents.critic import critique
-from cv_align_agents.agents.jd_parser import parse_jd
-from cv_align_agents.agents.matcher import match
-from cv_align_agents.agents.parser import parse_resume
-from cv_align_agents.pipeline.hygiene import check_hygiene
-from cv_align_agents.pipeline.scorer import score
-from cv_align_agents.state import (
+from multi_agent_resume_screener.agents.critic import critique
+from multi_agent_resume_screener.agents.jd_parser import parse_jd
+from multi_agent_resume_screener.agents.matcher import match
+from multi_agent_resume_screener.agents.parser import parse_resume
+from multi_agent_resume_screener.pipeline.hygiene import check_hygiene
+from multi_agent_resume_screener.pipeline.scorer import score
+from multi_agent_resume_screener.state import (
     JDRaw,
     PipelineConfig,
     PipelineState,

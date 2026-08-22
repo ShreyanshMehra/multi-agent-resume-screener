@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import re
 
-from cv_align_agents.state import (
+from multi_agent_resume_screener.state import (
     HygieneIssue,
     HygieneReport,
     StructuredResume,

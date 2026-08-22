@@ -1,4 +1,4 @@
-# Architecture — CV-Align-Agents
+# Architecture — multi-agent-resume-screener
 
 ## Problem
 
@@ -113,7 +113,7 @@ accumulates structured outputs as agents run, tracks retry bookkeeping, and
 maintains a `trace` list — one entry per agent invocation — which becomes the
 explainability/audit log persisted to SQLite.
 
-See `src/cv_align_agents/state.py` (added in Step 4) for the concrete schema.
+See `src/multi_agent_resume_screener/state.py` (added in Step 4) for the concrete schema.
 
 ## Scoring weights (defaults)
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from cv_align_agents.state import (
+from multi_agent_resume_screener.state import (
     DEFAULT_WEIGHTS,
     SECTIONS,
     CandidateResult,

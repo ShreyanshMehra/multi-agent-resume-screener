@@ -8,15 +8,15 @@ import pytest
 from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
-from cv_align_agents.agents.critic import _CriticLLMOutput
-from cv_align_agents.api.main import app, get_llm, get_store
-from cv_align_agents.state import (
+from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
+from multi_agent_resume_screener.api.main import app, get_llm, get_store
+from multi_agent_resume_screener.state import (
     MatchResult,
     StructuredJD,
     StructuredResume,
     SubScore,
 )
-from cv_align_agents.storage.runs import RunStore
+from multi_agent_resume_screener.storage.runs import RunStore
 
 
 class _RoutingRunnable:
@@ -82,7 +82,7 @@ def test_root_serves_frontend():
     resp = c.get("/")
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
-    assert "CV-Align-Agents" in resp.text
+    assert "multi-agent-resume-screener" in resp.text
 
 
 def test_static_assets_served():

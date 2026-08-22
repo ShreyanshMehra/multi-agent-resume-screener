@@ -15,8 +15,8 @@ import sys
 
 from dotenv import load_dotenv
 
-from cv_align_agents.llm.client import LLMConfigError, get_chat_model
-from cv_align_agents.settings import get_settings
+from multi_agent_resume_screener.llm.client import LLMConfigError, get_chat_model
+from multi_agent_resume_screener.settings import get_settings
 
 
 def main() -> int:

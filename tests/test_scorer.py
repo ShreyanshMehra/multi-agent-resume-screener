@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 
-from cv_align_agents.pipeline.scorer import score
-from cv_align_agents.state import (
+from multi_agent_resume_screener.pipeline.scorer import score
+from multi_agent_resume_screener.state import (
     DEFAULT_WEIGHTS,
     MatchResult,
     PipelineConfig,

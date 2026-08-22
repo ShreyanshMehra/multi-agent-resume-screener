@@ -1,4 +1,4 @@
-# CV-Align-Agents — Architecture Deep Dive (Interview Companion)
+# multi-agent-resume-screener — Architecture Deep Dive (Interview Companion)
 
 This document is written for a long-form technical interview where you walk an
 interviewer through the system end to end. It starts by justifying the problem,

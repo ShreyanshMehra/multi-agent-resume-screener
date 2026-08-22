@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from cv_align_agents.agents.jd_parser import parse_jd
-from cv_align_agents.state import JDRaw, StructuredJD
+from multi_agent_resume_screener.agents.jd_parser import parse_jd
+from multi_agent_resume_screener.state import JDRaw, StructuredJD
 
 
 class _FakeStructuredRunnable:

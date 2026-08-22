@@ -13,8 +13,8 @@ from __future__ import annotations
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from cv_align_agents.llm.client import get_chat_model
-from cv_align_agents.state import (
+from multi_agent_resume_screener.llm.client import get_chat_model
+from multi_agent_resume_screener.state import (
     SECTIONS,
     MatchResult,
     StructuredJD,

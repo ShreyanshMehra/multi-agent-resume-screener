@@ -1,8 +1,8 @@
-# CV-Align-Agents
+# multi-agent-resume-screener
 
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
 
-CV-Align-Agents screens resumes against a job description using a pipeline of
+multi-agent-resume-screener screens resumes against a job description using a pipeline of
 specialized agents — a **parser**, a **JD parser**, a **matcher**, a
 deterministic **scorer**, a deterministic **hygiene** checker, and a **critic** —
 with a self-correction loop and a full audit trail for explainability.
@@ -20,7 +20,7 @@ It serves two personas from one engine:
 
 A single LLM call that "scores a resume" is a black box: you can't tell *why* a
 candidate ranked where they did, and you can't improve one stage without
-risking the others. CV-Align-Agents splits the job into focused stages, using a
+risking the others. multi-agent-resume-screener splits the job into focused stages, using a
 plain function where the task is deterministic and an LLM agent only where the
 task needs judgment:
 
@@ -89,8 +89,8 @@ against Gemini). See `docs/architecture.md` for the full design.
 
 ```bash
 # 1. Clone
-git clone https://github.com/ShreyanshMehra/CV-Align-Agents.git
-cd CV-Align-Agents
+git clone https://github.com/ShreyanshMehra/multi-agent-resume-screener.git
+cd multi-agent-resume-screener
 
 # 2. Create & activate a virtual environment
 python -m venv .venv
@@ -113,7 +113,7 @@ copy .env.example .env        # Windows  (use `cp` on macOS/Linux)
 ### Run the API
 
 ```bash
-uvicorn cv_align_agents.api.main:app --reload
+uvicorn multi_agent_resume_screener.api.main:app --reload
 # open http://127.0.0.1:8000/docs for interactive Swagger UI
 ```
 
@@ -168,7 +168,7 @@ ruff check src tests scripts    # lint
 ## Project layout
 
 ```
-src/cv_align_agents/
+src/multi_agent_resume_screener/
 ├── state.py          # Shared Pydantic state + public result models
 ├── settings.py       # Typed config from .env
 ├── pdf.py            # Deterministic PDF → text
@@ -186,8 +186,8 @@ blueprint (`render.yaml`).
 
 ```bash
 # Build and run locally with Docker
-docker build -t cv-align-agents .
-docker run -p 8000:8000 -e GOOGLE_API_KEY=your-key cv-align-agents
+docker build -t multi-agent-resume-screener .
+docker run -p 8000:8000 -e GOOGLE_API_KEY=your-key multi-agent-resume-screener
 ```
 
 **Hugging Face Spaces (recommended, free):** the `README.md` front-matter

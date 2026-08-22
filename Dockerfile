@@ -17,4 +17,4 @@ RUN pip install --no-cache-dir -e ".[groq]"
 EXPOSE 8000
 
 # Shell form so $PORT (set by most PaaS hosts, e.g. Render) is expanded.
-CMD uvicorn cv_align_agents.api.main:app --host 0.0.0.0 --port ${PORT}
+CMD uvicorn multi_agent_resume_screener.api.main:app --host 0.0.0.0 --port ${PORT}

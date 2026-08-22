@@ -12,9 +12,9 @@ from io import BytesIO
 import pytest
 from pypdf import PdfWriter
 
-from cv_align_agents.agents.parser import parse_resume
-from cv_align_agents.pdf import extract_text_from_pdf
-from cv_align_agents.state import ResumeRaw, StructuredResume
+from multi_agent_resume_screener.agents.parser import parse_resume
+from multi_agent_resume_screener.pdf import extract_text_from_pdf
+from multi_agent_resume_screener.state import ResumeRaw, StructuredResume
 
 
 # --------------------------------------------------------------------------- #

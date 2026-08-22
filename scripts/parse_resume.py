@@ -16,9 +16,9 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from cv_align_agents.agents.parser import parse_resume
-from cv_align_agents.pdf import PDFExtractionError, extract_text_from_pdf
-from cv_align_agents.state import ResumeRaw
+from multi_agent_resume_screener.agents.parser import parse_resume
+from multi_agent_resume_screener.pdf import PDFExtractionError, extract_text_from_pdf
+from multi_agent_resume_screener.state import ResumeRaw
 
 
 def main(argv: list[str]) -> int:

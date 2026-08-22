@@ -1,1 +1,1 @@
-"""Test suite for CV-Align-Agents."""
+"""Test suite for multi-agent-resume-screener."""

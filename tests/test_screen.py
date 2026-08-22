@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import asyncio
 
-from cv_align_agents.agents.critic import _CriticLLMOutput
-from cv_align_agents.pipeline.screen import screen
-from cv_align_agents.state import (
+from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
+from multi_agent_resume_screener.pipeline.screen import screen
+from multi_agent_resume_screener.state import (
     JDRaw,
     MatchResult,
     PipelineConfig,
