@@ -1,14 +1,3 @@
----
-title: CV-Align-Agents
-emoji: 📄
-colorFrom: blue
-colorTo: indigo
-sdk: docker
-app_port: 8000
-pinned: false
-license: mit
----
-
 # CV-Align-Agents
 
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
