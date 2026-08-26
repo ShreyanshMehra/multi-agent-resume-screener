@@ -174,7 +174,7 @@ python scripts/screen.py resume.pdf job.txt       # full pipeline + agent trace
 
 ```bash
 pip install -e ".[dev]"
-pytest -q                       # 68 tests, fully offline (fake LLM)
+pytest -q                       # 78 tests, fully offline (fake LLM)
 ruff check src tests scripts    # lint
 ```
 
