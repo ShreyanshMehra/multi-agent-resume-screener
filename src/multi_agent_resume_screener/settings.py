@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     # Optional explicit model name. If unset, a per-provider default is used.
     llm_model: str | None = Field(default=None)
 
+    # --- Embedding model (resume-evidence retrieval) ---
+    # Retrieval always uses Gemini's embedding API regardless of LLM_PROVIDER
+    # (Groq has no embeddings API), so GOOGLE_API_KEY is required for it.
+    # Optional explicit model name; defaults to "gemini-embedding-001" if unset.
+    embedding_model: str | None = Field(default=None)
+
     # --- Provider API keys ---
     google_api_key: str | None = Field(default=None)
     groq_api_key: str | None = Field(default=None)

@@ -6,6 +6,8 @@ from multi_agent_resume_screener.agents.matcher import match
 from multi_agent_resume_screener.state import (
     SECTIONS,
     MatchResult,
+    ResumeChunk,
+    RetrievedChunk,
     StructuredJD,
     StructuredResume,
     SubScore,
@@ -88,3 +90,43 @@ def test_match_injects_feedback_into_prompt():
 
     human_msg = llm.calls[0][1].content
     assert "Re-check the skills evidence" in human_msg
+
+
+def test_match_without_retrieved_evidence_omits_evidence_block():
+    # Existing callers (no retrieved_evidence) must see identical prompts.
+    result = MatchResult(sub_scores=[], overall_evidence_quality=0.5)
+    llm = _FakeLLM(result)
+    match(_resume(), _jd(), llm=llm)
+
+    human_msg = llm.calls[0][1].content
+    assert "RETRIEVED EVIDENCE" not in human_msg
+
+
+def test_match_includes_retrieved_evidence_in_prompt():
+    result = MatchResult(sub_scores=[], overall_evidence_quality=0.5)
+    llm = _FakeLLM(result)
+    evidence = {
+        "skills": [
+            RetrievedChunk(
+                chunk=ResumeChunk(
+                    section="skills", title=None, text="Distinctive Python FastAPI text"
+                ),
+                score=0.9,
+            )
+        ],
+    }
+    match(_resume(), _jd(), llm=llm, retrieved_evidence=evidence)
+
+    human_msg = llm.calls[0][1].content
+    assert "RETRIEVED EVIDENCE" in human_msg
+    assert "Distinctive Python FastAPI text" in human_msg
+
+
+def test_match_marks_empty_section_evidence_as_no_evidence():
+    result = MatchResult(sub_scores=[], overall_evidence_quality=0.5)
+    llm = _FakeLLM(result)
+    evidence = {"experience": []}
+    match(_resume(), _jd(), llm=llm, retrieved_evidence=evidence)
+
+    human_msg = llm.calls[0][1].content
+    assert "no evidence retrieved above the relevance threshold" in human_msg

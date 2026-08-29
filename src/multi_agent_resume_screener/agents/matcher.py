@@ -17,6 +17,7 @@ from multi_agent_resume_screener.llm.client import get_chat_model
 from multi_agent_resume_screener.state import (
     SECTIONS,
     MatchResult,
+    RetrievedChunk,
     StructuredJD,
     StructuredResume,
     SubScore,
@@ -42,7 +43,16 @@ the resume evidence was for making these judgments. Low values mean the resume \
 was vague, sparse, or hard to map to the job.
 
 Be evidence-driven and avoid inflating scores. Do not reward skills the job did \
-not ask for.\
+not ask for.
+
+If a RETRIEVED EVIDENCE section is provided below, it contains the resume \
+excerpts an automated retrieval step found most relevant to each section's \
+requirements. Ground your evidence and reasoning in those excerpts primarily, \
+while still using the full structured resume for context. A section marked \
+"no evidence retrieved above the relevance threshold" means the automated \
+search found nothing strongly relevant -- it does NOT necessarily mean the \
+candidate lacks the skill; use your own judgment from the full resume in that \
+case, but never invent evidence that is not present in the resume.\
 """
 
 FEEDBACK_PREFIX = """\
@@ -57,6 +67,7 @@ def _build_human_message(
     resume: StructuredResume,
     jd: StructuredJD,
     feedback: list[str] | None,
+    retrieved_evidence: dict[str, list[RetrievedChunk]] | None,
 ) -> str:
     parts = [
         "## JOB DESCRIPTION (structured)",
@@ -65,6 +76,19 @@ def _build_human_message(
         "## CANDIDATE RESUME (structured)",
         resume.model_dump_json(indent=2),
     ]
+    if retrieved_evidence:
+        parts += ["", "## RETRIEVED EVIDENCE (top-matching resume excerpts per section)"]
+        for section in SECTIONS:
+            chunks = retrieved_evidence.get(section) or []
+            if not chunks:
+                parts.append(
+                    f"- {section}: (no evidence retrieved above the relevance threshold)"
+                )
+                continue
+            parts.append(f"- {section}:")
+            for rc in chunks:
+                label = f" [{rc.chunk.title}]" if rc.chunk.title else ""
+                parts.append(f"  - (score={rc.score:.2f}){label} {rc.chunk.text}")
     if feedback:
         parts.append(FEEDBACK_PREFIX)
         parts.extend(f"- {item}" for item in feedback)
@@ -106,6 +130,7 @@ def match(
     jd: StructuredJD,
     llm: BaseChatModel | None = None,
     feedback: list[str] | None = None,
+    retrieved_evidence: dict[str, list[RetrievedChunk]] | None = None,
 ) -> MatchResult:
     """Evaluate a resume against a job description.
 
@@ -116,6 +141,8 @@ def match(
             the configured provider via :func:`get_chat_model`.
         feedback: Optional suggestions from a previous critic pass, injected into
             the prompt to drive the single self-correction re-evaluation.
+        retrieved_evidence: Optional top-k resume excerpts per section from the
+            evidence-retrieval layer, used to ground the matcher's scoring.
 
     Returns:
         A :class:`MatchResult` with exactly one :class:`SubScore` per section and
@@ -126,7 +153,9 @@ def match(
 
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=_build_human_message(resume, jd, feedback)),
+        HumanMessage(
+            content=_build_human_message(resume, jd, feedback, retrieved_evidence)
+        ),
     ]
     result = matcher.invoke(messages)
 

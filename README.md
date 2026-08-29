@@ -16,9 +16,12 @@ license: mit
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
 
 multi-agent-resume-screener screens resumes against a job description using a pipeline of
-specialized agents (a **parser**, a **JD parser**, a **matcher**, a
+specialized agents (a **parser**, a **JD parser**, a **retriever**, a **matcher**, a
 deterministic **scorer**, a deterministic **hygiene** checker, and a **critic**),
-with a self-correction loop and a full audit trail for explainability.
+with a self-correction loop and a full audit trail for explainability. The
+retriever grounds the matcher's scoring in the resume excerpts most relevant to
+each JD requirement, retrieved via semantic (Gemini-embedding) search over the
+resume — a small, genuine RAG layer, not just a full-document dump.
 
 It serves two personas from one engine:
 
@@ -41,7 +44,8 @@ task needs judgment:
 |-------|------|----------------|
 | Parser | agent | Resume PDF text → structured fields (skills, projects, experience) |
 | JD Parser | agent | Job description → structured requirements |
-| Matcher | agent | Per-section sub-scores + quoted evidence, vs **this** JD |
+| Retriever | function | Chunks the resume + retrieves top-k relevant excerpts per section (Gemini embeddings, cosine similarity) |
+| Matcher | agent | Per-section sub-scores + quoted evidence, grounded in retrieved excerpts, vs **this** JD |
 | Scorer | function | Deterministic weighted score from sub-scores |
 | Hygiene | function | Deterministic "fix right now" rules: links, quantified bullets, weak verbs, over-long bullets, first-person pronouns, buzzwords, generic names… |
 | Critic | agent | JD gaps, "build over time" skill-building advice, verdict, and a confidence check |
@@ -56,6 +60,8 @@ matcher once for a re-evaluation (capped to avoid infinite loops).
                  parser ─────────────► jd_parser
                     └──────────┬──────────┘
                                ▼
+                          retriever (Gemini embeddings)
+                               │
                     ┌────► matcher ──► scorer ──► hygiene ──► critic ─┐
                     │                                                  │
                     └──────── self-correction (≤1 retry) ◄────────────┘
@@ -86,8 +92,10 @@ and adds no latency.
 
 ## Status
 
-✅ Core engine + HTTP API complete and tested (78 tests, all live-verified
-against Gemini). See `docs/architecture.md` for the full design.
+✅ Core engine + HTTP API complete and tested (94 tests, fully offline). The
+core pipeline has been live-verified against Gemini; the evidence-retrieval
+layer's offline tests use a fake embedder and have not yet been run against
+the live Gemini embeddings API. See `docs/architecture.md` for the full design.
 
 ## Tech stack
 
@@ -174,7 +182,7 @@ python scripts/screen.py resume.pdf job.txt       # full pipeline + agent trace
 
 ```bash
 pip install -e ".[dev]"
-pytest -q                       # 78 tests, fully offline (fake LLM)
+pytest -q                       # 94 tests, fully offline (fake LLM + fake embedder)
 ruff check src tests scripts    # lint
 ```
 
@@ -182,14 +190,15 @@ ruff check src tests scripts    # lint
 
 ```
 src/multi_agent_resume_screener/
-├── state.py          # Shared Pydantic state + public result models
-├── settings.py       # Typed config from .env
-├── pdf.py            # Deterministic PDF → text
-├── llm/              # Provider-abstracted LLM client (Gemini/Groq)
-├── agents/           # parser, jd_parser, matcher, critic
-├── pipeline/         # scorer, hygiene (deterministic), graph, screen
-├── api/              # FastAPI app
-└── storage/          # SQLite run persistence
+├── state.py         # Shared Pydantic state + public result models
+├── settings.py      # Typed config from .env
+├── pdf.py           # Deterministic PDF → text
+├── llm/             # Provider-abstracted LLM client (Gemini/Groq)
+├── embeddings/      # Gemini embedding client (resume-evidence retrieval)
+├── agents/          # parser, jd_parser, matcher, critic
+├── pipeline/        # scorer, hygiene, retrieval (deterministic), graph, screen
+├── api/             # FastAPI app
+└── storage/         # SQLite run persistence
 ```
 
 ## Deployment

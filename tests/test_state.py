@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import math
 
+import pytest
+from pydantic import ValidationError
+
 from multi_agent_resume_screener.state import (
     DEFAULT_WEIGHTS,
     SECTIONS,
@@ -14,7 +17,9 @@ from multi_agent_resume_screener.state import (
     MatchResult,
     PipelineConfig,
     PipelineState,
+    ResumeChunk,
     ResumeRaw,
+    RetrievedChunk,
     StructuredResume,
     SubScore,
 )
@@ -37,6 +42,18 @@ def test_defaults_are_sane():
     assert state.trace == []
     # All four sections are present in the default weights.
     assert set(DEFAULT_WEIGHTS) == set(SECTIONS)
+
+
+def test_retrieval_fields_default_empty():
+    state = _make_state()
+    assert state.resume_chunks == []
+    assert state.retrieved_evidence == {}
+
+
+def test_retrieval_top_k_default_and_validation():
+    assert PipelineConfig().retrieval_top_k == 4
+    with pytest.raises(ValidationError):
+        PipelineConfig(retrieval_top_k=0)
 
 
 def test_weights_default_sum_to_one():
@@ -144,9 +161,33 @@ def test_candidate_result_surfaces_ranking_reasons():
     assert "experience" not in result.section_evidence
 
 
+def test_candidate_result_surfaces_retrieved_evidence():
+    state = _make_state()
+    state.resume_structured = StructuredResume(name="Alice Doe")
+    state.retrieved_evidence = {
+        "skills": [
+            RetrievedChunk(
+                chunk=ResumeChunk(section="skills", title=None, text="Python, Go"),
+                score=0.8,
+            )
+        ],
+        "experience": [],  # retrieved but nothing met the relevance threshold
+    }
+    result = CandidateResult.from_state(state)
+    assert result.retrieved_evidence["skills"] == ["Python, Go"]
+    # Empty sections are omitted, mirroring section_evidence's convention.
+    assert "experience" not in result.retrieved_evidence
+
+
 def test_state_round_trips_through_json():
     state = _make_state(mode="candidate")
+    state.resume_chunks = [ResumeChunk(section="skills", title=None, text="Python, Go")]
+    state.retrieved_evidence = {
+        "skills": [RetrievedChunk(chunk=state.resume_chunks[0], score=0.75)],
+    }
     dumped = state.model_dump_json()
     restored = PipelineState.model_validate_json(dumped)
     assert restored.config.mode == "candidate"
     assert restored.resume_raw.filename == "alice.pdf"
+    assert restored.resume_chunks[0].text == "Python, Go"
+    assert restored.retrieved_evidence["skills"][0].score == 0.75

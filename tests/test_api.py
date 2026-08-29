@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import math
+import re
+import zlib
 from io import BytesIO
 
 import pytest
@@ -9,7 +12,7 @@ from fastapi.testclient import TestClient
 from pypdf import PdfWriter
 
 from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
-from multi_agent_resume_screener.api.main import app, get_llm, get_store
+from multi_agent_resume_screener.api.main import app, get_embedder, get_llm, get_store
 from multi_agent_resume_screener.state import (
     MatchResult,
     StructuredJD,
@@ -17,6 +20,27 @@ from multi_agent_resume_screener.state import (
     SubScore,
 )
 from multi_agent_resume_screener.storage.runs import RunStore
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+class _FakeEmbedder:
+    """Deterministic bag-of-words embedder for offline tests (see
+    tests/test_retrieval.py for the retrieval-specific tests of this fake)."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vectorize(t) for t in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vectorize(text)
+
+    @staticmethod
+    def _vectorize(text: str, dim: int = 64) -> list[float]:
+        vec = [0.0] * dim
+        for tok in _TOKEN_RE.findall(text.lower()):
+            vec[zlib.crc32(tok.encode("utf-8")) % dim] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm else vec
 
 
 class _RoutingRunnable:
@@ -65,6 +89,7 @@ def _blank_pdf_bytes() -> bytes:
 def client(tmp_path):
     store = RunStore(tmp_path / "test_runs.db")
     app.dependency_overrides[get_llm] = _fake_llm
+    app.dependency_overrides[get_embedder] = _FakeEmbedder
     app.dependency_overrides[get_store] = lambda: store
     yield TestClient(app)
     app.dependency_overrides.clear()

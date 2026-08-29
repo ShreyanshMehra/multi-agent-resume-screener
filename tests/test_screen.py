@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import math
+import re
+import zlib
 
 from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
 from multi_agent_resume_screener.pipeline.screen import screen
@@ -15,6 +18,27 @@ from multi_agent_resume_screener.state import (
     StructuredResume,
     SubScore,
 )
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+class _FakeEmbedder:
+    """Deterministic bag-of-words embedder for offline tests (see
+    tests/test_retrieval.py for the retrieval-specific tests of this fake)."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vectorize(t) for t in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vectorize(text)
+
+    @staticmethod
+    def _vectorize(text: str, dim: int = 64) -> list[float]:
+        vec = [0.0] * dim
+        for tok in _TOKEN_RE.findall(text.lower()):
+            vec[zlib.crc32(tok.encode("utf-8")) % dim] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm else vec
 
 
 class _RoutingRunnable:
@@ -68,7 +92,10 @@ def _resumes(n: int) -> list[ResumeRaw]:
 def test_candidate_mode_returns_single_ranked_result():
     llm = _make_llm(lambda n: 0.8)
     result = asyncio.run(
-        screen(_resumes(1), JDRaw(text="jd"), PipelineConfig(mode="candidate"), llm=llm)
+        screen(
+            _resumes(1), JDRaw(text="jd"), PipelineConfig(mode="candidate"),
+            llm=llm, embedder=_FakeEmbedder(),
+        )
     )
     assert result.mode == "candidate"
     assert result.job_title == "Backend"
@@ -84,6 +111,7 @@ def test_recruiter_full_ranks_all_and_critiques_all():
         screen(
             _resumes(3), JDRaw(text="jd"),
             PipelineConfig(mode="recruiter", critic_mode="full"), llm=llm,
+            embedder=_FakeEmbedder(),
         )
     )
     assert len(result.candidates) == 3
@@ -101,7 +129,7 @@ def test_recruiter_fast_critiques_only_top_k():
         screen(
             _resumes(4), JDRaw(text="jd"),
             PipelineConfig(mode="recruiter", critic_mode="fast", critic_top_k=2),
-            llm=llm,
+            llm=llm, embedder=_FakeEmbedder(),
         )
     )
     assert len(result.candidates) == 4
@@ -121,6 +149,7 @@ def test_jd_parsed_once_across_resumes():
         screen(
             _resumes(3), JDRaw(text="jd"),
             PipelineConfig(mode="recruiter", critic_mode="full"), llm=llm,
+            embedder=_FakeEmbedder(),
         )
     )
     # JD parsed exactly once even though 3 resumes were screened.

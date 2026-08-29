@@ -102,6 +102,28 @@ class StructuredJD(BaseModel):
 
 
 # --------------------------------------------------------------------------- #
+# Retrieval (evidence chunks + what was retrieved for the matcher)
+# --------------------------------------------------------------------------- #
+class ResumeChunk(BaseModel):
+    """One retrievable unit of a structured resume.
+
+    One chunk per experience/project/education item, plus one chunk for the
+    whole (flat) skills list -- see ``pipeline/retrieval.py::build_chunks``.
+    """
+
+    section: Section
+    title: str | None = None
+    text: str
+
+
+class RetrievedChunk(BaseModel):
+    """A resume chunk retrieved for a section's JD-derived query."""
+
+    chunk: ResumeChunk
+    score: float = Field(ge=-1.0, le=1.0)
+
+
+# --------------------------------------------------------------------------- #
 # Matcher output
 # --------------------------------------------------------------------------- #
 class SubScore(BaseModel):
@@ -193,6 +215,7 @@ class PipelineConfig(BaseModel):
     critic_mode: CriticMode = "full"
     critic_top_k: int = Field(default=5, ge=1)
     enable_critic: bool = True
+    retrieval_top_k: int = Field(default=4, ge=1)
     weights: dict[str, float] = Field(default_factory=lambda: dict(DEFAULT_WEIGHTS))
     max_retries: int = Field(default=1, ge=0)
     confidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
@@ -241,6 +264,8 @@ class PipelineState(BaseModel):
     # Accumulated as agents run
     resume_structured: StructuredResume | None = None
     jd_structured: StructuredJD | None = None
+    resume_chunks: list[ResumeChunk] = Field(default_factory=list)
+    retrieved_evidence: dict[str, list[RetrievedChunk]] = Field(default_factory=dict)
     match_result: MatchResult | None = None
     final_score: FinalScore | None = None
     hygiene: HygieneReport | None = None
@@ -298,6 +323,10 @@ class CandidateResult(BaseModel):
     section_reasons: dict[str, str] = Field(default_factory=dict)
     section_evidence: dict[str, list[str]] = Field(default_factory=dict)
 
+    # Retrieved resume excerpts that grounded the matcher, keyed by section
+    # (the RAG evidence-retrieval layer's contribution to the audit trail).
+    retrieved_evidence: dict[str, list[str]] = Field(default_factory=dict)
+
     @classmethod
     def from_state(cls, state: PipelineState) -> CandidateResult:
         """Build the public result from a fully-processed pipeline state."""
@@ -323,6 +352,13 @@ class CandidateResult(BaseModel):
                     section_reasons[sub.section] = sub.reasoning
                 if sub.evidence:
                     section_evidence[sub.section] = list(sub.evidence)
+        # Retrieved evidence, flattened to quoted text (omit empty sections,
+        # matching section_evidence's omit-empty convention above).
+        retrieved_evidence: dict[str, list[str]] = {
+            section: [rc.chunk.text for rc in chunks]
+            for section, chunks in state.retrieved_evidence.items()
+            if chunks
+        }
         return cls(
             filename=state.resume_raw.filename,
             candidate_name=name,
@@ -335,6 +371,7 @@ class CandidateResult(BaseModel):
             hygiene_issues=hygiene_issues,
             section_reasons=section_reasons,
             section_evidence=section_evidence,
+            retrieved_evidence=retrieved_evidence,
         )
 
 

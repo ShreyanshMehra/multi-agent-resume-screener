@@ -20,10 +20,12 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from pydantic import ValidationError
 
 from multi_agent_resume_screener import __version__
+from multi_agent_resume_screener.embeddings.client import EmbeddingConfigError
 from multi_agent_resume_screener.llm.client import LLMConfigError
 from multi_agent_resume_screener.pdf import PDFExtractionError, extract_text_from_pdf
 from multi_agent_resume_screener.pipeline.screen import screen
@@ -57,6 +59,15 @@ def get_llm() -> BaseChatModel | None:
     return None
 
 
+def get_embedder() -> Embeddings | None:
+    """Embeddings dependency. Returns ``None`` so retrieval uses the configured
+    Gemini embedder.
+
+    Tests override this via ``app.dependency_overrides`` to inject a fake embedder.
+    """
+    return None
+
+
 @lru_cache(maxsize=1)
 def _default_store() -> RunStore:
     return RunStore(get_settings().db_path)
@@ -86,6 +97,7 @@ async def screen_endpoint(
     critic_top_k: int = Form(5, ge=1),
     resumes: list[UploadFile] = File(..., description="Resume PDF file(s)."),
     llm: BaseChatModel | None = Depends(get_llm),
+    embedder: Embeddings | None = Depends(get_embedder),
     store: RunStore = Depends(get_store),
 ) -> ScreeningResult:
     if not jd.strip():
@@ -118,8 +130,8 @@ async def screen_endpoint(
         )
 
     try:
-        result = await screen(resume_inputs, JDRaw(text=jd), config, llm=llm)
-    except LLMConfigError as exc:
+        result = await screen(resume_inputs, JDRaw(text=jd), config, llm=llm, embedder=embedder)
+    except (LLMConfigError, EmbeddingConfigError) as exc:
         # Misconfiguration (e.g. missing API key) -> 503 with a clear message.
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

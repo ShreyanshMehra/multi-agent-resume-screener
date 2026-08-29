@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import math
+import re
+import zlib
+
 from multi_agent_resume_screener.agents.critic import _CriticLLMOutput
 from multi_agent_resume_screener.pipeline.graph import build_pipeline, run_pipeline
 from multi_agent_resume_screener.state import (
@@ -14,6 +18,28 @@ from multi_agent_resume_screener.state import (
     StructuredResume,
     SubScore,
 )
+
+_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+class _FakeEmbedder:
+    """Deterministic bag-of-words embedder for offline tests (mirrors the fake
+    LLM pattern above; see tests/test_retrieval.py for the retrieval-specific
+    tests of this same fake)."""
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._vectorize(t) for t in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._vectorize(text)
+
+    @staticmethod
+    def _vectorize(text: str, dim: int = 64) -> list[float]:
+        vec = [0.0] * dim
+        for tok in _TOKEN_RE.findall(text.lower()):
+            vec[zlib.crc32(tok.encode("utf-8")) % dim] += 1.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm else vec
 
 
 class _RoutingRunnable:
@@ -68,7 +94,7 @@ def test_happy_path_no_retry():
     resume_raw, jd_raw = _inputs()
     llm = _RoutingFakeLLM(_results(confidence=0.95))  # high confidence -> no loop
 
-    state = run_pipeline(resume_raw, jd_raw, PipelineConfig(), llm=llm)
+    state = run_pipeline(resume_raw, jd_raw, PipelineConfig(), llm=llm, embedder=_FakeEmbedder())
 
     assert state.resume_structured.name == "Jane"
     assert state.jd_structured.title == "Backend"
@@ -82,7 +108,7 @@ def test_happy_path_no_retry():
     assert llm.counts["_CriticLLMOutput"] == 1
     # Trace recorded every stage in order.
     agents = [t.agent for t in state.trace]
-    assert agents == ["parser", "jd_parser", "matcher", "scorer", "hygiene", "critic"]
+    assert agents == ["parser", "jd_parser", "retriever", "matcher", "scorer", "hygiene", "critic"]
 
 
 def test_self_correction_loop_runs_once():
@@ -92,7 +118,7 @@ def test_self_correction_loop_runs_once():
 
     state = run_pipeline(
         resume_raw, jd_raw, PipelineConfig(max_retries=1, confidence_threshold=0.6),
-        llm=llm,
+        llm=llm, embedder=_FakeEmbedder(),
     )
 
     assert state.retry_count == 1
@@ -105,12 +131,28 @@ def test_self_correction_loop_runs_once():
     assert any(t.agent == "self_correction" for t in state.trace)
 
 
+def test_retrieval_runs_once_and_survives_retry():
+    resume_raw, jd_raw = _inputs()
+    # Low confidence -> one retry, but retrieval must not be recomputed.
+    llm = _RoutingFakeLLM(_results(confidence=0.2))
+
+    state = run_pipeline(
+        resume_raw, jd_raw, PipelineConfig(max_retries=1, confidence_threshold=0.6),
+        llm=llm, embedder=_FakeEmbedder(),
+    )
+
+    assert llm.counts["MatchResult"] == 2  # matcher retried
+    assert state.resume_chunks  # retrieval populated
+    retriever_entries = [t for t in state.trace if t.agent == "retriever"]
+    assert len(retriever_entries) == 1  # but retrieval only ran once
+
+
 def test_retry_disabled_when_max_retries_zero():
     resume_raw, jd_raw = _inputs()
     llm = _RoutingFakeLLM(_results(confidence=0.1))  # would want to rescore
 
     state = run_pipeline(
-        resume_raw, jd_raw, PipelineConfig(max_retries=0), llm=llm,
+        resume_raw, jd_raw, PipelineConfig(max_retries=0), llm=llm, embedder=_FakeEmbedder(),
     )
 
     assert state.retry_count == 0
@@ -120,7 +162,7 @@ def test_retry_disabled_when_max_retries_zero():
 def test_pipeline_result_converts_to_candidate_result():
     resume_raw, jd_raw = _inputs()
     llm = _RoutingFakeLLM(_results(confidence=0.95))
-    state = run_pipeline(resume_raw, jd_raw, PipelineConfig(), llm=llm)
+    state = run_pipeline(resume_raw, jd_raw, PipelineConfig(), llm=llm, embedder=_FakeEmbedder())
 
     result = CandidateResult.from_state(state)
     assert result.filename == "jane.pdf"
@@ -133,7 +175,7 @@ def test_pipeline_result_converts_to_candidate_result():
 def test_prebuilt_pipeline_is_reusable():
     resume_raw, jd_raw = _inputs()
     llm = _RoutingFakeLLM(_results(confidence=0.95))
-    pipeline = build_pipeline(llm=llm)
+    pipeline = build_pipeline(llm=llm, embedder=_FakeEmbedder())
 
     from multi_agent_resume_screener.state import PipelineState
 

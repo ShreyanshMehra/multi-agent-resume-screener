@@ -5,12 +5,17 @@ Flow (per resume)::
     START
       → parse_resume        (agent, skipped if already structured)
       → parse_jd            (agent, skipped if already structured)
-      → match               (agent; uses critic feedback on retry)
+      → retrieve_evidence   (chunks resume + retrieves top-k evidence per
+                              section via Gemini embeddings; skipped if
+                              already computed, deterministic otherwise)
+      → match               (agent; grounded in retrieved evidence, uses
+                              critic feedback on retry)
       → score               (deterministic)
       → hygiene             (deterministic)
       → critic              (agent; sets needs_rescore deterministically)
       → [conditional]
-            ├─ prepare_retry → match     (one self-correction loop)
+            ├─ prepare_retry → match     (one self-correction loop; retrieval
+                                           is not rebuilt on retry)
             └─ END
 
 The single conditional edge (loop back to the matcher when the critic is
@@ -23,6 +28,7 @@ log accumulates without needing a custom channel reducer.
 
 from __future__ import annotations
 
+from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 
@@ -31,6 +37,7 @@ from multi_agent_resume_screener.agents.jd_parser import parse_jd
 from multi_agent_resume_screener.agents.matcher import match
 from multi_agent_resume_screener.agents.parser import parse_resume
 from multi_agent_resume_screener.pipeline.hygiene import check_hygiene
+from multi_agent_resume_screener.pipeline.retrieval import build_chunks, retrieve_evidence
 from multi_agent_resume_screener.pipeline.scorer import score
 from multi_agent_resume_screener.state import (
     JDRaw,
@@ -41,13 +48,16 @@ from multi_agent_resume_screener.state import (
 )
 
 
-def build_pipeline(llm: BaseChatModel | None = None):
+def build_pipeline(llm: BaseChatModel | None = None, embedder: Embeddings | None = None):
     """Build and compile the screening pipeline graph.
 
     Args:
         llm: Optional chat model injected into every agent (used by tests to run
             the graph offline). When ``None``, each agent resolves the configured
             provider itself.
+        embedder: Optional embeddings client injected into the retrieval node
+            (used by tests to run retrieval offline). When ``None``, it resolves
+            the configured Gemini embedder itself.
 
     Returns:
         A compiled LangGraph runnable. Invoke it with a :class:`PipelineState`
@@ -75,6 +85,20 @@ def build_pipeline(llm: BaseChatModel | None = None):
             "trace": _trace(state, "jd_parser", structured.title or ""),
         }
 
+    def retrieve_evidence_node(state: PipelineState) -> dict:
+        if state.resume_chunks:
+            return {}
+        chunks = build_chunks(state.resume_structured)
+        evidence = retrieve_evidence(
+            chunks, state.jd_structured, embedder=embedder, top_k=state.config.retrieval_top_k
+        )
+        hits = sum(len(v) for v in evidence.values())
+        return {
+            "resume_chunks": chunks,
+            "retrieved_evidence": evidence,
+            "trace": _trace(state, "retriever", f"{len(chunks)} chunks, {hits} retrieved"),
+        }
+
     def match_node(state: PipelineState) -> dict:
         # On a retry pass, feed the critic's suggestions back to the matcher.
         feedback = None
@@ -85,6 +109,7 @@ def build_pipeline(llm: BaseChatModel | None = None):
             state.jd_structured,
             llm=llm,
             feedback=feedback,
+            retrieved_evidence=state.retrieved_evidence,
         )
         note = f"retry={state.retry_count}" if feedback else "initial"
         return {"match_result": result, "trace": _trace(state, "matcher", note)}
@@ -139,6 +164,7 @@ def build_pipeline(llm: BaseChatModel | None = None):
     graph = StateGraph(PipelineState)
     graph.add_node("parse_resume", parse_resume_node)
     graph.add_node("parse_jd", parse_jd_node)
+    graph.add_node("retrieve_evidence", retrieve_evidence_node)
     graph.add_node("match", match_node)
     graph.add_node("score", score_node)
     graph.add_node("check_hygiene", hygiene_node)
@@ -147,7 +173,8 @@ def build_pipeline(llm: BaseChatModel | None = None):
 
     graph.add_edge(START, "parse_resume")
     graph.add_edge("parse_resume", "parse_jd")
-    graph.add_edge("parse_jd", "match")
+    graph.add_edge("parse_jd", "retrieve_evidence")
+    graph.add_edge("retrieve_evidence", "match")
     graph.add_edge("match", "score")
     graph.add_edge("score", "check_hygiene")
     graph.add_conditional_edges(
@@ -170,6 +197,7 @@ def run_pipeline(
     jd_raw: JDRaw,
     config: PipelineConfig | None = None,
     llm: BaseChatModel | None = None,
+    embedder: Embeddings | None = None,
 ) -> PipelineState:
     """Run one resume through the full pipeline and return the final state.
 
@@ -178,12 +206,13 @@ def run_pipeline(
         jd_raw: Raw job-description text.
         config: Optional pipeline config (mode, weights, retries, ...).
         llm: Optional chat model (dependency injection for tests).
+        embedder: Optional embeddings client (dependency injection for tests).
 
     Returns:
         The final :class:`PipelineState` with structured data, scores, hygiene,
         critique, and the accumulated trace.
     """
-    pipeline = build_pipeline(llm=llm)
+    pipeline = build_pipeline(llm=llm, embedder=embedder)
     initial = PipelineState(
         resume_raw=resume_raw,
         jd_raw=jd_raw,

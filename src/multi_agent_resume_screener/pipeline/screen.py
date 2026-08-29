@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 
+from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 
 from multi_agent_resume_screener.agents.critic import critique
@@ -55,6 +56,7 @@ async def screen(
     jd: JDRaw,
     config: PipelineConfig | None = None,
     llm: BaseChatModel | None = None,
+    embedder: Embeddings | None = None,
 ) -> ScreeningResult:
     """Screen one or more resumes against a job description.
 
@@ -63,13 +65,14 @@ async def screen(
         jd: The job description.
         config: Pipeline config (mode, critic_mode, weights, ...).
         llm: Optional chat model (dependency injection for tests).
+        embedder: Optional embeddings client (dependency injection for tests).
 
     Returns:
         A :class:`ScreeningResult` with candidates ranked by score (descending).
     """
     config = config or PipelineConfig()
     jd_structured = parse_jd(jd, llm=llm)
-    pipeline = build_pipeline(llm=llm)
+    pipeline = build_pipeline(llm=llm, embedder=embedder)
 
     # In recruiter "fast" mode, score everyone without the critic first, then
     # critique only the top-K. Otherwise run the critic inline for all.
