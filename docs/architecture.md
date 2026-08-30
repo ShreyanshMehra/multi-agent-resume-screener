@@ -1,4 +1,4 @@
-# Architecture — multi-agent-resume-screener
+# Architecture — CV-Align | Multi-Agent Resume Screener
 
 ## Problem
 

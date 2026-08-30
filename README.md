@@ -1,5 +1,5 @@
 ---
-title: multi-agent-resume-screener
+title: "CV-Align | Multi-Agent Resume Screener"
 emoji: 📄
 colorFrom: blue
 colorTo: indigo
@@ -9,13 +9,13 @@ pinned: false
 license: mit
 ---
 
-# multi-agent-resume-screener
+# CV-Align | Multi-Agent Resume Screener
 
 **Live demo:** https://bit.ly/multi_agent-resume-screener
 
 > Multi-agent resume screening pipeline built with **LangGraph** and **Gemini**, served via **FastAPI**.
 
-multi-agent-resume-screener screens resumes against a job description using a pipeline of
+CV-Align screens resumes against a job description using a pipeline of
 specialized agents (a **parser**, a **JD parser**, a **retriever**, a **matcher**, a
 deterministic **scorer**, a deterministic **hygiene** checker, and a **critic**),
 with a self-correction loop and a full audit trail for explainability. The
@@ -36,7 +36,7 @@ It serves two personas from one engine:
 
 A single LLM call that "scores a resume" is a black box: you can't tell *why* a
 candidate ranked where they did, and you can't improve one stage without
-risking the others. multi-agent-resume-screener splits the job into focused stages, using a
+risking the others. CV-Align splits the job into focused stages, using a
 plain function where the task is deterministic and an LLM agent only where the
 task needs judgment:
 
