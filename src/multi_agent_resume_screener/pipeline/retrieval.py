@@ -132,18 +132,32 @@ def retrieve_evidence(
 
     # Batch both embedding calls (all chunk texts once, all section queries
     # once) rather than one call per chunk/query, to minimise API usage.
-    all_chunks = [c for s in sections_with_chunks for c in by_section[s]]
+    # Blank text is excluded from both batches: Gemini's embedding API
+    # rejects an empty content Part outright (400 error), and an empty JD
+    # query has no signal to search with anyway, so those sections
+    # correctly yield no evidence rather than crashing the whole request.
+    all_chunks = [c for s in sections_with_chunks for c in by_section[s] if c.text.strip()]
+    if not all_chunks:
+        return result
     chunk_vectors = embedder.embed_documents([c.text for c in all_chunks])
     vectors_by_id = dict(zip((id(c) for c in all_chunks), chunk_vectors))
+    chunked_sections = {c.section for c in all_chunks}
 
-    queries = [_section_query(s, jd) for s in sections_with_chunks]
+    queryable_sections = [
+        s for s in sections_with_chunks if s in chunked_sections and _section_query(s, jd).strip()
+    ]
+    if not queryable_sections:
+        return result
+
+    queries = [_section_query(s, jd) for s in queryable_sections]
     query_vectors = embedder.embed_documents(queries)
 
-    for section, query_vector in zip(sections_with_chunks, query_vectors):
+    for section, query_vector in zip(queryable_sections, query_vectors):
         scored = sorted(
             (
                 RetrievedChunk(chunk=c, score=_cosine(query_vector, vectors_by_id[id(c)]))
                 for c in by_section[section]
+                if id(c) in vectors_by_id
             ),
             key=lambda rc: rc.score,
             reverse=True,

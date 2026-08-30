@@ -60,6 +60,12 @@ class _FakeEmbedder:
         import re
         import zlib
 
+        # Mirrors the real Gemini API, which rejects blank text with a 400 --
+        # strict on purpose so a --fake dry run catches empty-query bugs too.
+        for t in texts:
+            if not t.strip():
+                raise ValueError("embed_documents() received blank text")
+
         def vectorize(text: str, dim: int = 64) -> list[float]:
             vec = [0.0] * dim
             for tok in re.findall(r"[a-z0-9]+", text.lower()):

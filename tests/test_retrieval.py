@@ -33,6 +33,13 @@ class _FakeEmbedder:
     """
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        # Mirrors the real Gemini API, which rejects blank text with a 400
+        # (EmbedContentRequest.content contains an empty Part) -- strict on
+        # purpose so retrieval code that ever sends blank text fails loudly
+        # here instead of only in production.
+        for t in texts:
+            if not t.strip():
+                raise ValueError("embed_documents() received blank text")
         return [self._vectorize(t) for t in texts]
 
     def embed_query(self, text: str) -> list[float]:
@@ -166,6 +173,22 @@ def test_retrieval_returns_empty_when_no_relevant_evidence():
     evidence = retrieve_evidence(chunks, jd, embedder=_FakeEmbedder(), top_k=4)
 
     assert evidence["skills"] == []
+
+
+def test_retrieval_skips_section_with_empty_jd_query_without_crashing():
+    # A JD with no `qualifications` produces an empty query string for the
+    # education section. The real Gemini embeddings API rejects an empty
+    # content Part with a 400 -- this exact combination (resume has an
+    # education chunk, JD has no qualifications) crashed a live run before
+    # retrieve_evidence() learned to skip sections with an empty query.
+    resume = _resume_with_separable_facts()
+    chunks = build_chunks(resume)
+    jd = StructuredJD(required_skills=["python"], responsibilities=["Python backend work"])
+    assert jd.qualifications == []  # the condition that triggers an empty query
+
+    evidence = retrieve_evidence(chunks, jd, embedder=_FakeEmbedder(), top_k=4)
+
+    assert evidence["education"] == []  # no crash, no fabricated evidence
 
 
 def test_retrieval_respects_top_k():
