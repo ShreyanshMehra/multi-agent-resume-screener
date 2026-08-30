@@ -24,7 +24,9 @@ reported separately as a no-fabrication check, since recall is undefined
 from __future__ import annotations
 
 import argparse
+import re
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -48,6 +50,34 @@ def _group_by_resume_jd(queries: list[GoldenQuery]) -> list[dict]:
             order.append(key)
         groups[key]["queries"].append(q)
     return [groups[k] for k in order]
+
+
+_RETRY_DELAY_RE = re.compile(r"retry in ([\d.]+)s", re.IGNORECASE)
+_MAX_RETRIES = 5
+_DEFAULT_RETRY_DELAY = 40.0  # seconds; safely past a free-tier per-minute window
+_PACING_DELAY = 1.5  # seconds between (resume, JD) groups, to avoid tripping the limit at all
+
+
+def _retrieve_with_retry(chunks, jd, embedder, top_k):
+    """Call retrieve_evidence(), retrying on a free-tier rate limit (429).
+
+    The eval script fires through many (resume, JD) groups back-to-back,
+    which can trip the free tier's per-minute embedding quota even though a
+    single real screening request (1-2 calls) never would. Retries using the
+    API's own suggested delay when present, else a fixed fallback.
+    """
+    for attempt in range(1, _MAX_RETRIES + 1):
+        try:
+            return retrieve_evidence(chunks, jd, embedder=embedder, top_k=top_k)
+        except Exception as exc:  # noqa: BLE001 - only rate limits are retried, others re-raise
+            message = str(exc)
+            is_rate_limit = "429" in message or "quota" in message.lower()
+            if not is_rate_limit or attempt == _MAX_RETRIES:
+                raise
+            match = _RETRY_DELAY_RE.search(message)
+            delay = float(match.group(1)) + 5 if match else _DEFAULT_RETRY_DELAY
+            print(f"  [rate limited, attempt {attempt}/{_MAX_RETRIES}] waiting {delay:.0f}s before retry...")
+            time.sleep(delay)
 
 
 class _FakeEmbedder:
@@ -104,10 +134,12 @@ def main() -> int:
     print(f"{'query':<38} {'section':<12} {'result':<18}")
     print("-" * 70)
 
-    for group in groups:
+    for i, group in enumerate(groups):
+        if i > 0 and not args.fake:
+            time.sleep(_PACING_DELAY)  # spread real API calls to avoid tripping the quota
         chunks = build_chunks(group["resume"])
         try:
-            evidence = retrieve_evidence(chunks, group["jd"], embedder=embedder, top_k=args.top_k)
+            evidence = _retrieve_with_retry(chunks, group["jd"], embedder, args.top_k)
         except Exception as exc:  # noqa: BLE001 - surface any provider/network error
             print(f"[REQUEST FAILED] {type(exc).__name__}: {exc}")
             return 1
