@@ -21,6 +21,14 @@ from multi_agent_resume_screener.state import (
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# The production default (retrieval.py's _MIN_SIMILARITY, currently 0.80) is
+# calibrated against real Gemini embedding scores and is meaningless against
+# this fake's crude lexical hashing, which produces a much lower and
+# differently-shaped score range. Tests that need to distinguish "a real
+# match was found" from "nothing was found" pass this low threshold
+# explicitly instead of silently inheriting the production-tuned default.
+_FAKE_MIN_SIMILARITY = 0.05
+
 
 class _FakeEmbedder:
     """Deterministic bag-of-words embedder for offline tests.
@@ -152,7 +160,7 @@ def test_retrieval_ranks_relevant_chunk_highest():
         responsibilities=["Build Python backend services"],
     )
 
-    evidence = retrieve_evidence(chunks, jd, embedder=_FakeEmbedder(), top_k=4)
+    evidence = retrieve_evidence(chunks, jd, embedder=_FakeEmbedder(), top_k=4, min_similarity=_FAKE_MIN_SIMILARITY)
 
     assert evidence["experience"], "expected the Python/FastAPI experience chunk to be retrieved"
     top = evidence["experience"][0]
@@ -202,9 +210,14 @@ def test_retrieval_respects_top_k():
     )
     jd = StructuredJD(required_skills=["python"], responsibilities=["Python engineering"])
 
-    evidence = retrieve_evidence(chunks, jd, embedder=_FakeEmbedder(), top_k=2)
+    evidence = retrieve_evidence(
+        chunks, jd, embedder=_FakeEmbedder(), top_k=2, min_similarity=_FAKE_MIN_SIMILARITY
+    )
 
-    assert len(evidence["experience"]) <= 2
+    # Exactly top_k, not just "<= top_k" -- all 6 candidates match similarly
+    # well, so this actually exercises truncation rather than passing
+    # vacuously if nothing had cleared the threshold.
+    assert len(evidence["experience"]) == 2
 
 
 def test_retrieval_no_chunks_returns_empty_sections():

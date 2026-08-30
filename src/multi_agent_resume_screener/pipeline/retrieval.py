@@ -33,7 +33,18 @@ from multi_agent_resume_screener.state import (
 )
 
 # Below this cosine similarity, a chunk is not considered relevant evidence.
-_MIN_SIMILARITY = 0.3
+#
+# Calibrated empirically against the real Gemini embedder (see
+# scripts/inspect_similarity.py), not guessed: same-domain resume/JD matches
+# scored 0.850-0.914 across skills/experience/projects, while every
+# cross-domain (partial or zero skill overlap) pairing topped out at 0.789 --
+# dense embeddings compress short resume/JD text into a much narrower,
+# higher similarity band than a lexical model would, so a threshold tuned
+# for one is meaningless for the other. 0.80 sits in that observed gap.
+# This is a small empirical sample (a handful of domain pairs); revisit if
+# production usage shows the matcher frequently getting "no evidence
+# retrieved" on things that should plausibly match.
+_MIN_SIMILARITY = 0.80
 
 
 def build_chunks(resume: StructuredResume) -> list[ResumeChunk]:

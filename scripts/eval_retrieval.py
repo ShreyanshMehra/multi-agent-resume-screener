@@ -58,17 +58,27 @@ _DEFAULT_RETRY_DELAY = 40.0  # seconds; safely past a free-tier per-minute windo
 _PACING_DELAY = 1.5  # seconds between (resume, JD) groups, to avoid tripping the limit at all
 
 
-def _retrieve_with_retry(chunks, jd, embedder, top_k):
+def _retrieve_with_retry(chunks, jd, embedder, top_k, min_similarity):
     """Call retrieve_evidence(), retrying on a free-tier rate limit (429).
 
     The eval script fires through many (resume, JD) groups back-to-back,
     which can trip the free tier's per-minute embedding quota even though a
     single real screening request (1-2 calls) never would. Retries using the
     API's own suggested delay when present, else a fixed fallback.
+
+    ``min_similarity=None`` means "use retrieve_evidence()'s own production
+    default" (kept as the single source of truth in retrieval.py rather than
+    duplicated here) -- used for real Gemini runs. --fake runs pass an
+    explicit low threshold instead, since the fake embedder's score scale
+    isn't comparable to the real one the production default was calibrated
+    against (see retrieval.py's _MIN_SIMILARITY comment).
     """
+    kwargs = {"top_k": top_k}
+    if min_similarity is not None:
+        kwargs["min_similarity"] = min_similarity
     for attempt in range(1, _MAX_RETRIES + 1):
         try:
-            return retrieve_evidence(chunks, jd, embedder=embedder, top_k=top_k)
+            return retrieve_evidence(chunks, jd, embedder=embedder, **kwargs)
         except Exception as exc:  # noqa: BLE001 - only rate limits are retried, others re-raise
             message = str(exc)
             is_rate_limit = "429" in message or "quota" in message.lower()
@@ -106,16 +116,25 @@ class _FakeEmbedder:
         return [vectorize(t) for t in texts]
 
 
+_FAKE_MIN_SIMILARITY = 0.05  # the fake's score scale isn't comparable to real Gemini's
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--top-k", type=int, default=4, help="Retrieval top-k (default: 4, matches PipelineConfig default)")
     parser.add_argument("--fake", action="store_true", help="Use a deterministic fake embedder instead of the real Gemini API")
+    parser.add_argument(
+        "--min-similarity", type=float, default=None,
+        help="Override the relevance floor. Defaults to retrieval.py's production value for real "
+             f"runs, or {_FAKE_MIN_SIMILARITY} for --fake (the two embedders' score scales aren't comparable).",
+    )
     args = parser.parse_args()
 
     load_dotenv()
 
     if args.fake:
         embedder = _FakeEmbedder()
+        min_similarity = args.min_similarity if args.min_similarity is not None else _FAKE_MIN_SIMILARITY
         print("Using FAKE embedder (dry run) -- these numbers are NOT for publishing.\n")
     else:
         try:
@@ -123,6 +142,7 @@ def main() -> int:
         except EmbeddingConfigError as exc:
             print(f"[CONFIG ERROR] {exc}")
             return 2
+        min_similarity = args.min_similarity  # None -> retrieve_evidence()'s own production default
         print("Using the real Gemini embedder configured in your environment.\n")
 
     all_queries = GOLDEN_QUERIES + NEGATIVE_CONTROLS
@@ -139,7 +159,7 @@ def main() -> int:
             time.sleep(_PACING_DELAY)  # spread real API calls to avoid tripping the quota
         chunks = build_chunks(group["resume"])
         try:
-            evidence = _retrieve_with_retry(chunks, group["jd"], embedder, args.top_k)
+            evidence = _retrieve_with_retry(chunks, group["jd"], embedder, args.top_k, min_similarity)
         except Exception as exc:  # noqa: BLE001 - surface any provider/network error
             print(f"[REQUEST FAILED] {type(exc).__name__}: {exc}")
             return 1

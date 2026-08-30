@@ -123,12 +123,29 @@ query from the relevant `StructuredJD` fields (skills from
 that section's own chunks by cosine similarity. Both the batch of all chunk
 texts and the batch of all section queries are embedded in one API call each
 (not one call per chunk/query), so a typical resume costs about two
-embedding requests, not dozens. Results below `min_similarity` (0.3) are
+embedding requests, not dozens. Results below `min_similarity` (0.80) are
 dropped rather than padded with irrelevant top-k chunks — a section with no
 genuinely relevant evidence returns an empty list. The matcher's system
 prompt explicitly distinguishes "no evidence retrieved" from "candidate
 lacks the skill" and instructs it to never invent evidence not present in
 the resume.
+
+`min_similarity` was recalibrated from an initial guess of 0.3 to 0.80 after
+running the real Gemini embedder against a sample of golden-dataset queries
+(`scripts/inspect_similarity.py`): dense embeddings compress short resume/JD
+text into a much narrower, higher similarity band than the offline lexical
+fake embedder does, so a threshold tuned against the fake was not
+discriminating anything against the real API — every negative-control query
+was retrieving evidence it shouldn't have. Empirically, same-domain matches
+scored 0.850-0.914 across skills/experience/projects, while every
+cross-domain pairing (including ones sharing a single overlapping skill)
+topped out at 0.789; 0.80 sits in that gap. This is a small empirical
+sample, not a proven-optimal constant — worth revisiting if production usage
+shows the matcher frequently getting "no evidence retrieved" on things that
+should plausibly match. Because the two embedders' score distributions
+aren't comparable, offline tests pass their own low threshold explicitly
+(`tests/test_retrieval.py::_FAKE_MIN_SIMILARITY`) rather than inheriting
+this production-tuned default.
 
 **Grounding.** `retrieve_evidence_node` (in `pipeline/graph.py`) runs once per
 resume, between `parse_jd` and `match`, storing chunks and retrieved evidence
