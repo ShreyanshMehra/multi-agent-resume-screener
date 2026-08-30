@@ -147,6 +147,25 @@ aren't comparable, offline tests pass their own low threshold explicitly
 (`tests/test_retrieval.py::_FAKE_MIN_SIMILARITY`) rather than inheriting
 this production-tuned default.
 
+A full run of the 65-query golden dataset against the real threshold landed
+at **Recall@4 = 0.89** (58/65), with **14/14 negative controls retrieving
+nothing** — every miss was in the `education` section specifically, never
+skills/experience/projects (100% each). Investigating with
+`inspect_similarity.py` showed why: a genuine education match (e.g. "B.Tech
+Computer Science" against a JD asking for "Bachelor's degree in Computer
+Science") scored 0.784 — *inside* the same band as cross-domain false
+positives (0.759-0.789) measured elsewhere, not clearly above it. This is a
+deliberate, understood tradeoff rather than a bug to keep chasing: lowering
+the threshold enough to catch that education match would very likely
+reintroduce false positives in other sections, since the score bands
+overlap. Education also carries the lowest weight in `DEFAULT_WEIGHTS`
+(0.10), and the matcher always sees the full structured resume regardless of
+retrieval, so a missed education-evidence highlight doesn't remove
+information the matcher could otherwise use — it only means that one
+section's score isn't retrieval-grounded. Precision (zero fabricated
+cross-domain evidence) was chosen over recall in the one section where the
+cost of missing it is lowest.
+
 **Grounding.** `retrieve_evidence_node` (in `pipeline/graph.py`) runs once per
 resume, between `parse_jd` and `match`, storing chunks and retrieved evidence
 on `PipelineState`. `match_node` passes `state.retrieved_evidence` into

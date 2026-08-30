@@ -62,6 +62,7 @@ def main() -> int:
     _inspect("backend resume vs backend JD (has a decoy item)", BACKEND_RESUME, JD_BACKEND, "experience", embedder)
     _inspect("backend resume vs backend JD (has a decoy item)", BACKEND_RESUME, JD_BACKEND, "projects", embedder)
     _inspect("backend resume vs backend JD (true match, skills has no decoy)", BACKEND_RESUME, JD_BACKEND, "skills", embedder)
+    _inspect("backend resume vs backend JD (true match, education has no decoy)", BACKEND_RESUME, JD_BACKEND, "education", embedder)
 
     # Case 2: negative control where the two domains share ONE real skill
     # (Python) -- the "leak" flagged in the eval might be legitimate partial
