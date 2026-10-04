@@ -92,7 +92,7 @@ and adds no latency.
 
 ## Status
 
-✅ Core engine + HTTP API complete and tested (94 tests, fully offline). The
+✅ Core engine + HTTP API complete and tested (95 tests, fully offline). The
 core pipeline has been live-verified against Gemini; the evidence-retrieval
 layer's offline tests use a fake embedder and have not yet been run against
 the live Gemini embeddings API. See `docs/architecture.md` for the full design.
@@ -182,7 +182,7 @@ python scripts/screen.py resume.pdf job.txt       # full pipeline + agent trace
 
 ```bash
 pip install -e ".[dev]"
-pytest -q                       # 94 tests, fully offline (fake LLM + fake embedder)
+pytest -q                       # 95 tests, fully offline (fake LLM + fake embedder)
 ruff check src tests scripts    # lint
 ```
 
